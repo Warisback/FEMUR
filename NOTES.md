@@ -1,5 +1,21 @@
 # Notes
 
+## Phases 4–7 (2026-09-23)
+
+- Worker app, console, landing and director are built. The Playwright golden path passes: a real browser goes link → wallet → claim → photo → Gemini verify → **paid receipt in 41.6 s**, against real testnet and the real model.
+- Two live failures during e2e were the system working correctly: a Gemini 503 routed to needs_review (then resolver-approve → paid, proving the human path), and the duplicate-photo check rejected the byte-identical test image (tests now jitter the colour). verify retries transient 429/503 twice before falling back to review.
+- Console drives all progress via POST /api/tasks/tick-all every 2 s (sequential on purpose — parallel chain steps would race TREASURY's sequence number). Gate: middleware + /agent/unlock cookie; scripts use the x-admin-passcode header.
+- Demo worker is provisioned by stellar:setup (secret in .env, onboarded on-chain, is_demo row). Director simulate actions need the five fixture photos in public/demo/ — still on the human.
+- Not done (needs the human): Vercel deploy + Turso + Blob token (Phase 7), real-phone test of /work over mobile data, fixture photos + `pnpm ai:eval`, three live demo rehearsals, the fallback video, Trustless Work spike (API key).
+- /dev/ui deleted per Phase 7; components live in real pages now.
+
+### Before the demo
+
+1. If testnet reset since last time: `pnpm stellar:setup`, re-fund TREASURY at https://faucet.circle.com (address printed by setup).
+2. `pnpm db:push && pnpm db:seed` for a clean board; confirm `ESCROW_PROVIDER=native` in .env.
+3. `pnpm dev`, open /agent (passcode in .env), test one task end to end — or run `pnpm flow:smoke` / `pnpm e2e` as the one-command health check.
+4. Phone on mobile data, laptop tethered. ⌘⇧D in the console opens the director.
+
 ## Provider swap + first live end-to-end (2026-09-23)
 
 - AI provider is now the Gemini API (`@google/genai`), per the user's key — a free-tier key: Pro-class models have zero quota (429 limit:0) and 3.7/3.8-flash shed load, so `VERIFY_MODEL=gemini-3.6-flash` is the best reliable model. Raise it when billing exists. Structured outputs via responseJsonSchema + zod; photos inline base64.
