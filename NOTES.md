@@ -1,5 +1,12 @@
 # Notes
 
+## Phase 3
+
+- Verification + mission drafting are built with the SDK's `messages.parse()` + `zodOutputFormat` (structured outputs AND zod validation in one call — the plan's `output_config.format` json_schema shape is what it produces underneath). `extracted` travels as a key/value array on the wire (structured outputs want closed object shapes) and is folded to a Record for storage.
+- Decision rule, duplicate check and budget clamping are pure and unit-tested (decide(), clampDraft()); the model's verdict is stored for comparison only. Verify runs thinking-disabled on claude-sonnet-5, 25 s timeout, URL image with base64 fallback (local /uploads files always go base64 — Anthropic can't fetch localhost).
+- **Blocked on the human:** ANTHROPIC_API_KEY (nothing AI runs without it) and the five fixture photos in public/demo/ for `pnpm ai:eval`. Until the key exists, every submission routes to needs_review with a verify_failed event — resolvable from the console, so the flow still demos.
+- `outputFileTracingIncludes` ships the prompt .md files with Vercel bundles — check it survives the Phase 7 deploy.
+
 ## Phase 2
 
 - Full data layer, state machine, tick engine and API are in, 65 unit tests green. Live-checked: seed → GET /api/tasks (6 open) → claim correctly policy-blocked with "treasury holds 0 USDC < reward 0.5".
