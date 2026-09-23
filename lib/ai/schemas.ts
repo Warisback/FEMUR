@@ -2,8 +2,9 @@ import { z } from "zod";
 
 /** Zod → JSON Schema for Gemini's responseJsonSchema (the $schema key confuses it). */
 export function jsonSchemaOf(schema: z.ZodType): Record<string, unknown> {
-  const { $schema: _, ...rest } = z.toJSONSchema(schema) as Record<string, unknown>;
-  return rest;
+  const json = { ...(z.toJSONSchema(schema) as Record<string, unknown>) };
+  delete json.$schema;
+  return json;
 }
 
 export const VERIFICATION_FLAGS = [
