@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:push": "drizzle-kit push",
-    "db:seed": "node --env-file-if-exists=.env --import tsx lib/db/seed.ts",
+    "db:seed": "node --env-file-if-exists=.env --import tsx scripts/seed.ts",
     "db:reset": "node --env-file-if-exists=.env --import tsx scripts/reset.ts",
     "stellar:setup": "node --env-file-if-exists=.env --import tsx scripts/setup-testnet.ts",
     "escrow:smoke": "node --env-file-if-exists=.env --import tsx scripts/smoke-escrow.ts",
