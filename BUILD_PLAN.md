@@ -2,7 +2,7 @@
 
 > An AI agent hires people for the real-world tasks it can't do, verifies the work, and pays them from escrow in USDC on Stellar — in seconds, with a receipt.
 
-Built for the London Builder HQ show-and-tell (90 seconds, live) and as the Genesis-track project for Hack Meridian. Standing rules for working in this repo are in `CLAUDE.md`. This file is the *what* and the *order*.
+A personal project: partly to see whether real people want this, partly as a substantial build to talk through with recruiters. The 90-second live demo in §1 remains the quality bar — everything must be demoable end to end on request. Standing rules for working in this repo are in `CLAUDE.md`. This file is the *what* and the *order*.
 
 ---
 
@@ -78,7 +78,7 @@ Every state change in that script must appear on both screens without a manual r
 
 ### Stack
 
-Next.js 15 (App Router, TypeScript, pnpm) · Tailwind v4 · shadcn/ui (button, dialog, sheet, badge only) · Drizzle ORM + libSQL (`file:` in dev, Turso in prod) · `@stellar/stellar-sdk` (server) + `@stellar/stellar-base` (browser signing only) · `@anthropic-ai/sdk` · zod · swr · qrcode.react · `@vercel/blob` · lucide-react · vitest · playwright (one test). Deploy: Vercel.
+Next.js 15 (App Router, TypeScript, pnpm) · Tailwind v4 · shadcn/ui (button, dialog, sheet, badge only) · Drizzle ORM + libSQL (`file:` in dev, Turso in prod) · `@stellar/stellar-sdk` (server) + `@stellar/stellar-base` (browser signing only) · `@anthropic-ai/sdk` · zod · swr · qrcode.react · `@vercel/blob` · lucide-react · vitest · playwright (one test) · tsx (dev-only, runs `scripts/*.ts` — Node's own type-stripping can't resolve extensionless TS imports). Deploy: Vercel.
 
 ### Folder map
 

@@ -1,5 +1,13 @@
 # Notes
 
+## Phase 1
+
+- Stellar foundation + native escrow are built and unit-tested (21 tests). TREASURY/OPS exist on testnet with USDC trustlines; `stellar:setup` is idempotent and rewrites `.env` with generated secrets.
+- **Blocked on the human:** TREASURY has 0 USDC — fund via https://faucet.circle.com (Stellar testnet) then run `pnpm escrow:smoke` and `pnpm escrow:smoke -refund`. Also still waiting on a Trustless Work API key; `trustlesswork.ts` fails fast until the spike happens. `ESCROW_PROVIDER=native` everywhere for now.
+- Native escrow keys are derived (HMAC of task id keyed by treasury seed), never stored. Release/refund txs: TREASURY is tx source (pays the fee), escrow account is the payment op source.
+- SDK v17 gotchas hit: `tx.hash()` is a `Uint8Array`, `AccountResponse` no longer satisfies `Account`, XDR round-trips amounts as 7-decimal strings ("0" → "0.0000000").
+- tsx added (dev-only) to run `scripts/*.ts`; scripts use `main()` wrappers because tsx treats .ts as CJS (no top-level await) without `"type": "module"`.
+
 ## Phase 0
 
 - Node wasn't on this machine; portable Node 24.21.0 LTS now lives at `%LOCALAPPDATA%\Programs\nodejs` (added to the user PATH), pnpm 12.4.1 via corepack. New terminals pick it up; already-open ones won't.
