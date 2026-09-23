@@ -11,10 +11,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:push": "drizzle-kit push",
-    "db:seed": "node --env-file-if-exists=.env lib/db/seed.ts",
-    "stellar:setup": "node --env-file-if-exists=.env scripts/setup-testnet.ts",
-    "escrow:smoke": "node --env-file-if-exists=.env scripts/smoke-escrow.ts",
-    "ai:eval": "node --env-file-if-exists=.env scripts/ai-eval.ts",
+    "db:seed": "node --env-file-if-exists=.env --import tsx lib/db/seed.ts",
+    "db:reset": "node --env-file-if-exists=.env --import tsx scripts/reset.ts",
+    "stellar:setup": "node --env-file-if-exists=.env --import tsx scripts/setup-testnet.ts",
+    "escrow:smoke": "node --env-file-if-exists=.env --import tsx scripts/smoke-escrow.ts",
+    "ai:eval": "node --env-file-if-exists=.env --import tsx scripts/ai-eval.ts",
     "e2e": "playwright test"
   },
   "dependencies": {
@@ -48,6 +49,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.0"
   }
