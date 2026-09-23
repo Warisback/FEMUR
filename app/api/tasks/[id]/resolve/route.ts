@@ -5,22 +5,11 @@ import { db } from "@/lib/db/client";
 import { ledgerEvents, tasks } from "@/lib/db/schema";
 import { transition } from "@/lib/tasks/machine";
 import { claimTtlMs } from "@/lib/tasks/tick";
+import { isAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 
 const bodySchema = z.object({ decision: z.enum(["approve", "reject"]) });
-
-/**
- * Console-only. Until the Phase 5 middleware lands, the gate is the passcode
- * itself: cookie legwork_admin or header x-admin-passcode.
- */
-function isAdmin(req: Request): boolean {
-  const passcode = process.env.ADMIN_PASSCODE;
-  if (!passcode) return false;
-  if (req.headers.get("x-admin-passcode") === passcode) return true;
-  const cookies = req.headers.get("cookie") ?? "";
-  return cookies.split(/;\s*/).includes(`legwork_admin=${passcode}`);
-}
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   if (!isAdmin(req)) return NextResponse.json({ error: "console only" }, { status: 401 });
