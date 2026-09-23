@@ -1,5 +1,12 @@
 # Notes
 
+## Provider swap + first live end-to-end (2026-09-23)
+
+- AI provider is now the Gemini API (`@google/genai`), per the user's key — a free-tier key: Pro-class models have zero quota (429 limit:0) and 3.7/3.8-flash shed load, so `VERIFY_MODEL=gemini-3.6-flash` is the best reliable model. Raise it when billing exists. Structured outputs via responseJsonSchema + zod; photos inline base64.
+- TREASURY funded (20 USDC). `escrow:smoke` passes both paths. Fixed a real bug it caught: `DecoratedSignature.signature` is an xdr object that `Keypair.verify` takes as-is — wrapping in `Buffer.from` threw and read as "unsigned".
+- **Full flow through the API passes live** (`pnpm flow:smoke`, dev server running): onboard 9.0 s (over the 8 s budget — testnet ledger close; revisit if it worsens), claim→funded 13.3 s total, and submit→paid **22.5 s** (budget ≤ 25 s) with Gemini genuinely verifying the photo.
+- Before the demo: dev server + `pnpm flow:smoke` is the one-command health check of chain + model + API together.
+
 ## Phase 3
 
 - Verification + mission drafting are built with the SDK's `messages.parse()` + `zodOutputFormat` (structured outputs AND zod validation in one call — the plan's `output_config.format` json_schema shape is what it produces underneath). `extracted` travels as a key/value array on the wire (structured outputs want closed object shapes) and is folded to a Record for storage.

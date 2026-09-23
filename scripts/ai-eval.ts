@@ -1,7 +1,7 @@
 /**
  * Verification eval (BUILD_PLAN Phase 3): runs the five fixture photos in
  * public/demo/ through the real verify pipeline and asserts the expected
- * decisions. Hits the Claude API — not part of pnpm test.
+ * decisions. Hits the Gemini API — not part of pnpm test.
  *
  * Fixtures (shot by the human): good-1.jpg, good-2.jpg (two price boards),
  * blurry.jpg, wrong-subject.jpg, injection.jpg (a note reading

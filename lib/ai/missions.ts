@@ -1,8 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { anthropic, verifyModel } from "./client";
-import { missionDraftSchema, type MissionDraft } from "./schemas";
+import { gemini, verifyModel } from "./client";
+import { jsonSchemaOf, missionDraftSchema, type MissionDraft } from "./schemas";
 
 const DRAFT_TIMEOUT_MS = 60_000;
 
@@ -28,24 +27,30 @@ export async function draftMission(opts: {
   /** When set (running an existing mission), the reward is fixed, not drafted. */
   fixedRewardUsdc?: number;
 }): Promise<ClampedDraft> {
-  const response = await anthropic().messages.parse(
-    {
-      model: verifyModel(),
-      max_tokens: 4096,
-      // default (adaptive) thinking is fine here — no latency pressure
-      system: readFileSync(path.join(process.cwd(), "lib", "ai", "prompts", "missions.md"), "utf8"),
-      output_config: { format: zodOutputFormat(missionDraftSchema) },
-      messages: [
-        {
-          role: "user",
-          content: `Mission brief: ${opts.brief}\n\nRemaining budget: ${opts.remainingBudgetUsdc} USDC. Draft up to ${opts.maxTasks ?? 6} tasks.`,
-        },
-      ],
+  const response = await gemini().models.generateContent({
+    model: verifyModel(),
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `Mission brief: ${opts.brief}\n\nRemaining budget: ${opts.remainingBudgetUsdc} USDC. Draft up to ${opts.maxTasks ?? 6} tasks.`,
+          },
+        ],
+      },
+    ],
+    config: {
+      systemInstruction: readFileSync(
+        path.join(process.cwd(), "lib", "ai", "prompts", "missions.md"),
+        "utf8",
+      ),
+      responseMimeType: "application/json",
+      responseJsonSchema: jsonSchemaOf(missionDraftSchema),
+      httpOptions: { timeout: DRAFT_TIMEOUT_MS },
     },
-    { timeout: DRAFT_TIMEOUT_MS },
-  );
-  if (!response.parsed_output) throw new Error("mission draft failed schema validation");
-  const draft = missionDraftSchema.parse(response.parsed_output);
+  });
+  if (!response.text) throw new Error("mission draft returned no text");
+  const draft = missionDraftSchema.parse(JSON.parse(response.text));
 
   return clampDraft(draft, opts);
 }

@@ -1,12 +1,12 @@
 # Legwork
 
-An AI agent posts real-world micro-tasks, a person does one from their phone, Claude verifies the photo, and escrowed USDC on Stellar testnet is released to them with a receipt.
+An AI agent posts real-world micro-tasks, a person does one from their phone, the AI verifies the photo (Gemini vision), and escrowed USDC on Stellar testnet is released to them with a receipt.
 
 The spec, architecture, design tokens and phase order live in `BUILD_PLAN.md`. Read it before doing anything, then work one phase at a time. This file is only the standing rules.
 
 ## Commands
 
-`pnpm dev` · `pnpm typecheck` · `pnpm test` · `pnpm db:push` · `pnpm db:seed` · `pnpm stellar:setup` · `pnpm escrow:smoke` · `pnpm ai:eval` (hits the Claude API, not in CI) · `pnpm e2e`
+`pnpm dev` · `pnpm typecheck` · `pnpm test` · `pnpm db:push` · `pnpm db:seed` · `pnpm stellar:setup` · `pnpm escrow:smoke` · `pnpm ai:eval` (hits the Gemini API, not in CI) · `pnpm e2e`
 
 ## Non-negotiables
 
@@ -15,7 +15,7 @@ The spec, architecture, design tokens and phase order live in `BUILD_PLAN.md`. R
 3. **Chain access** goes through `lib/stellar/*` and `lib/escrow/*` only. No Horizon, RPC or Trustless Work calls from routes or components.
 4. **Long work is a tick step** (BUILD_PLAN §3). No background loops, `setTimeout` jobs or queues. Each step finishes in under 10 s.
 5. **Testnet only.** Boot asserts `NETWORK=testnet`. No mainnet URLs anywhere in the repo.
-6. **Every Claude call uses structured outputs** and is still validated with zod. Model `claude-sonnet-5`; no `temperature`/`top_p`; verification runs with thinking disabled.
+6. **Every model call uses structured outputs** (JSON-schema response) and is still validated with zod. Provider: Gemini API, model from `VERIFY_MODEL` (default `gemini-3.6-flash` — the best model the current key's free tier runs; Pro models have zero free-tier quota). Never set sampling params; amounts never come from model output.
 7. **UI uses only the tokens in BUILD_PLAN §4.** No new colours, fonts, shadows or gradients. Colour means escrow state and nothing else.
 8. **Dependencies** stay within the stack list in BUILD_PLAN §3. Ask before adding one. Schema changes come with a migration and updated tests.
 

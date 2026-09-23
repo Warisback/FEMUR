@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+/** Zod → JSON Schema for Gemini's responseJsonSchema (the $schema key confuses it). */
+export function jsonSchemaOf(schema: z.ZodType): Record<string, unknown> {
+  const { $schema: _, ...rest } = z.toJSONSchema(schema) as Record<string, unknown>;
+  return rest;
+}
+
 export const VERIFICATION_FLAGS = [
   "blurry",
   "wrong_subject",

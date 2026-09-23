@@ -1,16 +1,20 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 
-let client: Anthropic | null = null;
+let client: GoogleGenAI | null = null;
 
-export function anthropic(): Anthropic {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not set — verification and mission drafting need it");
+export function gemini(): GoogleGenAI {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not set — verification and mission drafting need it");
   }
-  client ??= new Anthropic();
+  client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   return client;
 }
 
-/** claude-sonnet-5 per CLAUDE.md non-negotiable 6; overridable for the demo via env. */
+/**
+ * gemini-3.6-flash: the strongest model this key's free tier can run reliably
+ * (Pro-class models have zero free-tier quota; 3.7/3.8-flash shed load under
+ * demand). Overridable via env once billing exists.
+ */
 export function verifyModel(): string {
-  return process.env.VERIFY_MODEL || "claude-sonnet-5";
+  return process.env.VERIFY_MODEL || "gemini-3.6-flash";
 }

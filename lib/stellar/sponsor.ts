@@ -89,12 +89,13 @@ function hasSignatureFrom(tx: Transaction, publicKey: string): boolean {
   const hash = Buffer.from(tx.hash());
   return tx.signatures.some((sig) => {
     try {
-      // The SDK types this as a property; older versions expose an accessor.
-      const raw: unknown =
+      // sig.signature is an xdr Signature instance (or an accessor in older
+      // SDKs); Keypair.verify accepts it as-is — do NOT wrap in Buffer.from.
+      const raw =
         typeof sig.signature === "function"
-          ? (sig.signature as unknown as () => unknown)()
-          : sig.signature;
-      return kp.verify(hash, Buffer.from(raw as Uint8Array));
+          ? (sig.signature as unknown as () => Buffer)()
+          : (sig.signature as unknown as Buffer);
+      return kp.verify(hash, raw);
     } catch {
       return false;
     }

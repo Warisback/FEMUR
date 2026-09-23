@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import type { Part } from "@google/genai";
 import { and, desc, eq, lt, ne } from "drizzle-orm";
 import { db } from "../db/client";
 import {
@@ -12,8 +11,8 @@ import {
   type Task,
 } from "../db/schema";
 import type { VerifyDecision } from "../tasks/tick";
-import { anthropic, verifyModel } from "./client";
-import { verificationOutputSchema, type VerificationOutput } from "./schemas";
+import { gemini, verifyModel } from "./client";
+import { jsonSchemaOf, verificationOutputSchema, type VerificationOutput } from "./schemas";
 
 const VERIFY_TIMEOUT_MS = 25_000;
 const SUMMARY_MAX = 140;
@@ -102,44 +101,29 @@ export async function verifySubmission(task: Task): Promise<VerifyDecision> {
 }
 
 async function callModel(task: Task, submission: Submission): Promise<VerificationOutput> {
-  const image = await imageBlock(submission);
-  const content: Anthropic.ContentBlockParam[] = [
-    { type: "text", text: taskContext(task) },
-    { type: "text", text: "<<<WORKER_SUBMISSION>>>" },
+  const parts: Part[] = [
+    { text: taskContext(task) },
+    { text: "<<<WORKER_SUBMISSION>>>" },
   ];
-  if (image) content.push(image);
-  if (submission.text) content.push({ type: "text", text: `Worker note: ${submission.text}` });
-  content.push({ type: "text", text: "<<<END_WORKER_SUBMISSION>>>" });
+  const image = await imagePart(submission);
+  if (image) parts.push(image);
+  if (submission.text) parts.push({ text: `Worker note: ${submission.text}` });
+  parts.push({ text: "<<<END_WORKER_SUBMISSION>>>" });
 
-  const request = {
+  const response = await gemini().models.generateContent({
     model: verifyModel(),
-    max_tokens: 1024,
-    // Sonnet 5 runs adaptive thinking by default; a vision check doesn't need
-    // it and latency matters (BUILD_PLAN §3). No temperature/top_p — 400.
-    thinking: { type: "disabled" as const },
-    system: prompt("verify.md"),
-    output_config: { format: zodOutputFormat(verificationOutputSchema) },
-    messages: [{ role: "user" as const, content }],
-  };
-
-  try {
-    const response = await anthropic().messages.parse(request, { timeout: VERIFY_TIMEOUT_MS });
-    if (!response.parsed_output) throw new Error("model output failed schema validation");
-    return verificationOutputSchema.parse(response.parsed_output);
-  } catch (err) {
-    // A URL the API could not fetch (e.g. blob store hiccup) → retry as base64.
-    if (image?.source.type === "url" && isImageFetchError(err)) {
-      const base64 = await base64Block(submission);
-      const retryContent = content.map((block) => (block === image ? base64 : block));
-      const response = await anthropic().messages.parse(
-        { ...request, messages: [{ role: "user" as const, content: retryContent }] },
-        { timeout: VERIFY_TIMEOUT_MS },
-      );
-      if (!response.parsed_output) throw new Error("model output failed schema validation");
-      return verificationOutputSchema.parse(response.parsed_output);
-    }
-    throw err;
-  }
+    contents: [{ role: "user", parts }],
+    config: {
+      systemInstruction: prompt("verify.md"),
+      responseMimeType: "application/json",
+      responseJsonSchema: jsonSchemaOf(verificationOutputSchema),
+      // sampling stays at model defaults (CLAUDE.md non-negotiable 6)
+      httpOptions: { timeout: VERIFY_TIMEOUT_MS },
+    },
+  });
+  const text = response.text;
+  if (!text) throw new Error("model returned no text");
+  return verificationOutputSchema.parse(JSON.parse(text));
 }
 
 function taskContext(task: Task): string {
@@ -154,37 +138,22 @@ function taskContext(task: Task): string {
   ].join("\n");
 }
 
-async function imageBlock(
-  submission: Submission,
-): Promise<Anthropic.ImageBlockParam | null> {
+/** Photos go inline as base64 — client-side resize keeps them ≤ ~400 KB. */
+async function imagePart(submission: Submission): Promise<Part | null> {
   if (!submission.image_url) return null;
-  if (/^https?:\/\//.test(submission.image_url) && !submission.image_url.includes("localhost")) {
-    return { type: "image", source: { type: "url", url: submission.image_url } };
-  }
-  return base64Block(submission);
-}
-
-async function base64Block(submission: Submission): Promise<Anthropic.ImageBlockParam> {
-  const url = submission.image_url!;
+  const url = submission.image_url;
   let bytes: Buffer;
   if (/^https?:\/\//.test(url)) {
-    bytes = Buffer.from(await (await fetch(url)).arrayBuffer());
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`could not fetch submission image (${res.status})`);
+    bytes = Buffer.from(await res.arrayBuffer());
   } else {
     // local-dev fallback storage under public/
     bytes = readFileSync(path.join(process.cwd(), "public", url.replace(/^\//, "")));
   }
   const ext = url.split(".").pop()?.toLowerCase();
-  const media =
-    ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : ("image/jpeg" as const);
-  return {
-    type: "image",
-    source: { type: "base64", media_type: media, data: bytes.toString("base64") },
-  };
-}
-
-function isImageFetchError(err: unknown): boolean {
-  const message = err instanceof Error ? err.message.toLowerCase() : "";
-  return message.includes("image") && (message.includes("url") || message.includes("fetch"));
+  const mimeType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+  return { inlineData: { mimeType, data: bytes.toString("base64") } };
 }
 
 const promptCache = new Map<string, string>();
