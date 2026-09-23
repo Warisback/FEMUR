@@ -1,5 +1,14 @@
 # Notes
 
+## Phase 2
+
+- Full data layer, state machine, tick engine and API are in, 65 unit tests green. Live-checked: seed → GET /api/tasks (6 open) → claim correctly policy-blocked with "treasury holds 0 USDC < reward 0.5".
+- tick is split pure/impure: nextStep + runStep are pure (tested with fake provider/Horizon per the plan); tickTask does lock/persist. Verify is an injected dependency — until Phase 3 it throws, which by design routes submissions to needs_review with a verify_failed event.
+- The double-pay guard is tested three ways: nextStep never re-selects release once release_tx is set, a forced re-run is a no-op, and for native escrow the account only ever holds one reward, so the network itself rejects a second release.
+- Claim is made atomic with a conditional UPDATE (status='open'); a lost race is a 409. If escrow funding fails the task reverts to open with a network_rejected event.
+- resolve is gated by ADMIN_PASSCODE (header or cookie) until the Phase 5 middleware; blob storage falls back to public/uploads when BLOB_READ_WRITE_TOKEN is unset so the flow works with no Vercel account.
+- The full open→paid API run still needs faucet USDC (see Phase 1 note).
+
 ## Phase 1
 
 - Stellar foundation + native escrow are built and unit-tested (21 tests). TREASURY/OPS exist on testnet with USDC trustlines; `stellar:setup` is idempotent and rewrites `.env` with generated secrets.

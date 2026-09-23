@@ -9,5 +9,10 @@ export default defineConfig({
   },
   test: {
     include: ["tests/unit/**/*.test.ts"],
+    env: {
+      NETWORK: "testnet",
+      USDC_CODE: "USDC",
+      USDC_ISSUER: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+    },
   },
 });
