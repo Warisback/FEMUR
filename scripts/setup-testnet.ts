@@ -109,9 +109,39 @@ async function setupAccount(label: string, envName: string) {
   return { pub, usdc };
 }
 
+/** The director's demo worker: sponsored-onboarded, labelled is_demo in the DB. */
+async function setupDemoWorker() {
+  const { kp, created } = loadOrCreateKeypair("DEMO_WORKER_SECRET");
+  if (created) {
+    console.log("DEMO WORKER: generated new keypair, secret written to .env");
+    process.env.DEMO_WORKER_SECRET = kp.secret();
+  }
+  if (!(await accountExists(kp.publicKey()))) {
+    const { buildOnboardingTx, submitOnboarding } = await import("../lib/stellar/sponsor");
+    const { TransactionBuilder } = await import("@stellar/stellar-sdk");
+    const { xdr } = await buildOnboardingTx(kp.publicKey());
+    const tx = TransactionBuilder.fromXDR(xdr, NETWORK_PASSPHRASE);
+    tx.sign(kp);
+    await submitOnboarding(tx.toXDR(), kp.publicKey());
+    console.log("DEMO WORKER: onboarded (sponsored, 0 XLM)");
+  }
+  try {
+    const { db } = await import("../lib/db/client");
+    const { workers } = await import("../lib/db/schema");
+    await db
+      .insert(workers)
+      .values({ address: kp.publicKey(), is_demo: true, created_at: Date.now() })
+      .onConflictDoNothing();
+  } catch {
+    console.log("DEMO WORKER: could not write the workers row — run pnpm db:push, then re-run");
+  }
+  console.log(`DEMO WORKER: ${kp.publicKey()}`);
+}
+
 async function main() {
   const treasury = await setupAccount("TREASURY", "TREASURY_SECRET");
   await setupAccount("OPS", "OPS_SECRET");
+  await setupDemoWorker();
 
   if (Number(treasury.usdc) === 0) {
     console.log("\nTREASURY holds no USDC yet. Fund it with testnet USDC:");
