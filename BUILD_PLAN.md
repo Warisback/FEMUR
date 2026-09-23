@@ -92,6 +92,9 @@ app/
   api/
     worker/onboard/route.ts         POST {address} → sponsor-signed XDR ; POST {signedXdr} → submit
     tasks/route.ts                  GET list (?status=, ?worker=)
+    tasks/[id]/route.ts             GET task + latest submission + verification
+    tasks/tick-all/route.ts         POST (console only) → step every non-terminal task once
+    console/route.ts                GET (console only) → header data + activity events
     tasks/[id]/claim/route.ts       POST {worker}
     tasks/[id]/submit/route.ts      POST multipart (photo, text)
     tasks/[id]/tick/route.ts        POST advance one step

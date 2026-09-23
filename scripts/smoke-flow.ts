@@ -30,7 +30,11 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
-function orangePng(size = 512, rgb: [number, number, number] = [232, 100, 27]): Buffer {
+function orangePng(size = 512): Buffer {
+  // Jitter the shade per run — identical bytes would (correctly) trip the
+  // duplicate-submission check.
+  const jitter = () => Math.floor(Math.random() * 24) - 12;
+  const rgb: [number, number, number] = [232 + jitter(), 100 + jitter(), 27 + Math.abs(jitter())];
   const crcTable = Array.from({ length: 256 }, (_, k) => {
     let c = k;
     for (let i = 0; i < 8; i++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;

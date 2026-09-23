@@ -110,20 +110,36 @@ async function callModel(task: Task, submission: Submission): Promise<Verificati
   if (submission.text) parts.push({ text: `Worker note: ${submission.text}` });
   parts.push({ text: "<<<END_WORKER_SUBMISSION>>>" });
 
-  const response = await gemini().models.generateContent({
-    model: verifyModel(),
-    contents: [{ role: "user", parts }],
-    config: {
-      systemInstruction: prompt("verify.md"),
-      responseMimeType: "application/json",
-      responseJsonSchema: jsonSchemaOf(verificationOutputSchema),
-      // sampling stays at model defaults (CLAUDE.md non-negotiable 6)
-      httpOptions: { timeout: VERIFY_TIMEOUT_MS },
-    },
-  });
-  const text = response.text;
-  if (!text) throw new Error("model returned no text");
-  return verificationOutputSchema.parse(JSON.parse(text));
+  // Transient 429/503s happen under load — retry briefly before falling back
+  // to needs_review (which the tick step does when this throws).
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const response = await gemini().models.generateContent({
+        model: verifyModel(),
+        contents: [{ role: "user", parts }],
+        config: {
+          systemInstruction: prompt("verify.md"),
+          responseMimeType: "application/json",
+          responseJsonSchema: jsonSchemaOf(verificationOutputSchema),
+          // sampling stays at model defaults (CLAUDE.md non-negotiable 6)
+          httpOptions: { timeout: VERIFY_TIMEOUT_MS },
+        },
+      });
+      const text = response.text;
+      if (!text) throw new Error("model returned no text");
+      return verificationOutputSchema.parse(JSON.parse(text));
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      const transient = /\b(429|503)\b|high demand|overload|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(
+        message,
+      );
+      if (!transient) throw err;
+    }
+  }
+  throw lastError;
 }
 
 function taskContext(task: Task): string {
