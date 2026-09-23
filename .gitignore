@@ -47,3 +47,6 @@ legwork.db*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local-dev submission uploads
+/public/uploads/
