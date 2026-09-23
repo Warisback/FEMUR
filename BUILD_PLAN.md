@@ -54,7 +54,7 @@ Every state change in that script must appear on both screens without a manual r
 
 - Worker app (mobile web): sponsored wallet, task list, claim, photo submit, live status, receipt, earnings summary.
 - Agent console: mission + budget, agent posts tasks (Claude drafts them), live dispatch ledger, submission detail with verification checklist, escrow trail, resolver actions for `needs_review`, activity strip (policy blocks, network rejections), QR to the worker app.
-- Verification pipeline: Claude vision, structured output, code-side decision rule, injection hardening, duplicate detection.
+- Verification pipeline: Gemini vision, structured output, code-side decision rule, injection hardening, duplicate detection.
 - Escrow: Trustless Work (Soroban) as primary, native per-task account as fallback, behind one interface.
 - Budget policy + on-chain hard cap.
 - Landing page with live receipt hero, three counters, two CTAs, QR.
@@ -78,7 +78,7 @@ Every state change in that script must appear on both screens without a manual r
 
 ### Stack
 
-Next.js 15 (App Router, TypeScript, pnpm) · Tailwind v4 · shadcn/ui (button, dialog, sheet, badge only) · Drizzle ORM + libSQL (`file:` in dev, Turso in prod) · `@stellar/stellar-sdk` (server) + `@stellar/stellar-base` (browser signing only) · `@anthropic-ai/sdk` · zod · swr · qrcode.react · `@vercel/blob` · lucide-react · vitest · playwright (one test) · tsx (dev-only, runs `scripts/*.ts` — Node's own type-stripping can't resolve extensionless TS imports). Deploy: Vercel.
+Next.js 15 (App Router, TypeScript, pnpm) · Tailwind v4 · shadcn/ui (button, dialog, sheet, badge only) · Drizzle ORM + libSQL (`file:` in dev, Turso in prod) · `@stellar/stellar-sdk` (server) + `@stellar/stellar-base` (browser signing only) · `@google/genai` (Gemini API) · zod · swr · qrcode.react · `@vercel/blob` · lucide-react · vitest · playwright (one test) · tsx (dev-only, runs `scripts/*.ts` — Node's own type-stripping can't resolve extensionless TS imports). Deploy: Vercel.
 
 ### Folder map
 
@@ -111,7 +111,7 @@ lib/
 components/
   ui/ (shadcn) · receipt.tsx · state-chip.tsx · tx-link.tsx · escrow-trail.tsx · criteria-list.tsx
   worker/ · agent/ · director/
-scripts/     setup-testnet.ts seed.ts smoke-escrow.ts reset.ts ai-eval.ts
+scripts/     setup-testnet.ts seed.ts smoke-escrow.ts smoke-flow.ts reset.ts ai-eval.ts
 public/demo/ good-1.jpg good-2.jpg blurry.jpg wrong-subject.jpg injection.jpg
 tests/       unit/ e2e/
 ```
@@ -189,7 +189,7 @@ export interface EscrowProvider {
 
 ### Verification pipeline (`lib/ai/verify.ts`)
 
-- Model `claude-sonnet-5`. Pass `thinking: { type: 'disabled' }` (Sonnet 5 turns adaptive thinking on by default; a vision check doesn't need it and latency matters). Do **not** set `temperature`/`top_p` (400 on Sonnet 5). `max_tokens: 1024`. Use structured outputs: `output_config: { format: { type: 'json_schema', schema } }`. Image goes in as `{ type: 'image', source: { type: 'url', url } }` (Vercel Blob public URL); fall back to base64 if the URL fetch fails.
+- Model from `VERIFY_MODEL`, default `gemini-3.6-flash` via the Gemini API (`@google/genai`). *Why not Claude/Pro:* the project runs on a free-tier Gemini key — Pro-class models have zero free-tier quota and 3.7/3.8-flash shed load under demand; upgrade `VERIFY_MODEL` when billing exists. Do **not** set sampling params. Structured outputs via `responseMimeType: application/json` + `responseJsonSchema` (derived from the zod schema), then zod-validated. The photo goes inline as base64 (`inlineData`) — client-side resize keeps it ≤ ~400 KB. 25 s request timeout.
 - Input: task title, instructions, criteria, `extract_fields`, then the submission (image and/or text) wrapped in a delimiter the prompt names as *data supplied by the worker*.
 - Output schema (zod first; derive JSON Schema from it):
 
@@ -211,7 +211,7 @@ export interface EscrowProvider {
 
 ### Mission drafting (`lib/ai/missions.ts`)
 
-Operator gives a brief and a budget. Claude returns `{ title, reward_usdc, tasks: [{ title, instructions, criteria[], extract_fields[] }] }` via structured outputs (default thinking is fine here; no latency pressure). Server clamps `reward_usdc ≤ max_reward_usdc` and trims the batch so `Σ rewards ≤ remaining budget` **before** anything is written. "Run agent" generates the next batch of up to 6 open tasks for the mission.
+Operator gives a brief and a budget. The model (same `VERIFY_MODEL`) returns `{ title, reward_usdc, tasks: [{ title, instructions, criteria[], extract_fields[] }] }` via structured outputs (no latency pressure here). Server clamps `reward_usdc ≤ max_reward_usdc` and trims the batch so `Σ rewards ≤ remaining budget` **before** anything is written. "Run agent" generates the next batch of up to 6 open tasks for the mission.
 
 ### Budget policy (`lib/tasks/policy.ts`, pure, tested)
 
@@ -413,7 +413,7 @@ Keyboard: `⌘⇧D` toggles; actions have single-letter shortcuts shown in the p
 | Sponsored onboarding | ≤ 8 s | Show the task list immediately; onboarding continues in the background |
 | Claim → funded (TW: deploy + fund) | ≤ 30 s | Already masked by photo-taking; if > 45 s, switch `ESCROW_PROVIDER=native` for the demo |
 | Claim → funded (native) | ≤ 8 s | — |
-| Verify | ≤ 8 s | Try `claude-haiku-4-5` for the demo; keep Sonnet 5 as default |
+| Verify | ≤ 8 s | Try `gemini-3.5-flash-lite` for the demo; keep `gemini-3.6-flash` as default |
 | Approve + release (TW) | ≤ 14 s | — |
 | Submit → paid, total | ≤ 25 s | Investigate per-step timings in `verifications.latency_ms` and `ledger_events` |
 
@@ -434,8 +434,8 @@ NETWORK=testnet
 NEXT_PUBLIC_APP_URL=
 DATABASE_URL=file:./legwork.db            # Turso URL + TURSO_AUTH_TOKEN in prod
 BLOB_READ_WRITE_TOKEN=
-ANTHROPIC_API_KEY=
-VERIFY_MODEL=claude-sonnet-5
+GEMINI_API_KEY=                           # Gemini API (AQ.… express key or AIza… key)
+VERIFY_MODEL=gemini-3.6-flash
 TREASURY_SECRET=                          # S...
 OPS_SECRET=                               # S...
 DEMO_WORKER_SECRET=                       # S..., director only
@@ -457,7 +457,6 @@ CLAIM_TTL_MINUTES=15
 - Stellar docs, including sponsored reserves, Horizon, contract accounts: https://developers.stellar.org/docs
 - Raven (Stellar context for AI tools): `claude mcp add --transport http stellar-raven "https://raven.stellar.buzz/mcp"`
 - Trustless Work API: https://docs.trustlesswork.com/trustless-work/api-rest/introduction · Flows: https://docs.trustlesswork.com/trustless-work/api-reference/introduction/flows · Trustlines: https://docs.trustlesswork.com/trustless-work/stellar-and-soroban-the-backbone-of-trustless-work/trustlines
-- Claude structured outputs: https://platform.claude.com/docs/en/build-with-claude/structured-outputs
-- Sonnet 5 behaviour changes (thinking default, sampling params): https://platform.claude.com/docs/en/about-claude/models/whats-new-sonnet-5
+- Gemini API structured output: https://ai.google.dev/gemini-api/docs/structured-output · vision: https://ai.google.dev/gemini-api/docs/image-understanding
 - Explorer: https://stellar.expert/explorer/testnet
 - OpenZeppelin smart accounts on Stellar (Lisbon roadmap only): https://developers.stellar.org/docs/tools/openzeppelin-contracts

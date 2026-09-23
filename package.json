@@ -15,12 +15,13 @@
     "db:reset": "node --env-file-if-exists=.env --import tsx scripts/reset.ts",
     "stellar:setup": "node --env-file-if-exists=.env --import tsx scripts/setup-testnet.ts",
     "escrow:smoke": "node --env-file-if-exists=.env --import tsx scripts/smoke-escrow.ts",
+    "flow:smoke": "node --env-file-if-exists=.env --import tsx scripts/smoke-flow.ts",
     "ai:eval": "node --env-file-if-exists=.env --import tsx scripts/ai-eval.ts",
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.125.0",
     "@base-ui/react": "^1.8.0",
+    "@google/genai": "^2.24.0",
     "@libsql/client": "^0.18.0",
     "@stellar/stellar-base": "^15.0.0",
     "@stellar/stellar-sdk": "^17.0.1",
